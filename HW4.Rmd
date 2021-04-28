@@ -1,0 +1,184 @@
+---
+title: "HW4"
+author: "Kara Godsey"
+date: "4/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+options(scipen=999)
+```
+
+```{r a}
+load("~/R/STAT5060/HW4/intervals.RData")
+set.seed(100, sample.kind = "Rejection")
+
+intervals <- function(groupcorr = 0, groupsize = 5, numintervals = 100,  
+                      sampgroups=10, popgroups=5000, mu = 0, sigma = 1) {
+    
+    
+    #Description:
+    
+    #     Simulate a population of clusters, then draw a simple random 
+    #     sample of clusters and construct interval estimates using incorrect
+    #     SRS formulae and formulae appropriate for cluster samples
+    
+    #Usage:
+    
+    #     intervals(groupcorr=0, numintervals = 100, groupsize = 5, sampgroups=10, 
+    #        popgroups=5000, mu = 0, sigma = 1)
+    
+    #Arguments:
+    
+    #groupcorr: The intracluster correlation coefficient rho.
+    
+    #numintervals: Number of samples to be taken from population.
+    
+    #groupsize: Number of elements in each population cluster.
+    
+    #sampgroups: Number of clusters to be sampled
+    
+    #popgroups: Number of clusters in population
+    
+    #    mu:  Mean for generating population
+    
+    # sigma: Standard deviation for generating population
+    
+    #Value:
+    
+    #   Produces 3 graphs:
+    
+    #  (1) Dotplot of data from last sample, displaying similarity within clusters
+    
+    #  (2) Interval estimates for mean using SRS formulas. Red lines
+    #      are the intervals that do not include the population mean
+    
+    #  (3) Confidence intervals using clusters as unit of analysis.
+    
+    
+    if (groupcorr < 0 | groupcorr > 1) stop("correlation must be between 0 and 1")
+    
+    betweenvar <- groupcorr * sigma^2
+    withinvar <- sigma^2*(1 - groupcorr)
+    group <- rep(1:sampgroups,each=groupsize)
+    
+    # Generate population with correlation structure
+    
+    gpmeans <- rnorm(popgroups,mu,sqrt(betweenvar))
+    yy <- rep(gpmeans,each=groupsize) + rnorm(popgroups*groupsize,0,sqrt(withinvar))
+    yy <- matrix(yy,nrow=groupsize,ncol=popgroups)
+    
+    indci <- matrix(0,ncol=2,nrow=numintervals)
+    clci <- indci
+    yy <- yy - mean(yy) + mu  # Adjust population so it has mean mu
+    
+    for (i in 1:numintervals) {
+        
+        # Take cluster sample of size groupsize
+        
+        sampindex <- sample(1:popgroups,sampgroups)
+        mysamp <- yy[,sampindex]
+        
+        indci[i,] <- t.test(as.vector(mysamp))$conf.int
+        sampmeans <- apply(mysamp,2,mean)
+        clci[i,] <- t.test(sampmeans)$conf.int
+        
+    }
+    
+    #print(paste("Data from sample",numintervals))
+    #print(mysamp)
+    #plot(group,as.vector(mysamp),main=paste("Data values from sample",numintervals),
+         #xlab="group number",ylab="x")
+    #plot(as.vector(mysamp),as.vector(mysamp),type="n",axes=F,xlab="",ylab="")
+    
+    # Determine if true value inside intervals
+    
+    indcover <- indci[,1] < mu & indci[,2] > mu
+    indcol <- rep("black",numintervals)
+    indcol[!indcover] <- "red"
+    conmeansrs <<- 100 - length(indcol[!indcover])
+    
+    clcover <- clci[,1] < mu & clci[,2] > mu
+    clcol <- rep("black",numintervals)
+    clcol[!clcover] <- "red"
+    conmeancluster <<- 100 - length(clcol[!clcover])
+    
+    # Draw confidence intervals
+    
+    plot(indci[,1],1:numintervals,type="n",xlim=c(-2*sigma+mu,2*sigma+mu),
+         ylab="interval",xlab="",main = "assuming SRS")
+    abline(v=mu)
+    for ( i in 1:numintervals) lines( c(indci[i,1],indci[i,2]),c(i,i),col=indcol[i] )
+    
+    plot(clci[,1],1:numintervals,type="n",xlim=c(-2*sigma+mu,2*sigma+mu),
+         ylab="interval",xlab="",main = "using sampling design")
+    abline(v=mu)
+    for ( i in 1:numintervals) lines( c(clci[i,1],clci[i,2]),c(i,i),col=clcol[i] )
+    
+    truemean <- data.frame(conmeansrs, conmeancluster)
+    colnames(truemean) <- c("SRS", "Cluster")
+    rownames(truemean) <- c("Number of intervals that contain the true mean")
+    
+    kable(truemean)
+}
+
+```
+
+***PART A***
+
+```{r b}
+intervals(0)
+```
+
+There is minimal effect of ignoring clustering when the ICC is equal to 0. There are two additional intervals that do not contain the true mean when clustering is ignored, but overall most of the intervals look to be a similar size whether clustering is ignored or accounted for.
+
+***PART B***
+
+```{r c}
+intervals(0.5)
+```
+
+The intervals calculated assuming cluster design are significantly wider than the intervals calculated by ignoring cluster design. As we can see from the table, 67% of the srs intervals contain the true mean while 94% of the cluster intervals contain the true mean.
+
+***PART C***
+
+My prediction is that an ICC of 1 would result in a greater percentage of interval estimates that contain the true mean. Additionally, I believe that the intervals would increase in width when we use an ICC of 1.
+
+```{r d}
+intervals(1)
+```
+
+***PART D***
+
+```{r e}
+ICC <- c(0,0,0,0,0.2,0.2,0.2,0.2,0.5,0.5,0.5,0.5,0.7,0.7,0.7,0.7,1,1,1,1)
+M <- c(2,5,10,25,2,5,10,25,2,5,10,25,2,5,10,25,2,5,10,25)
+seed <- c(1,2,3,4,5,6,7,8,400,500,600,700,800,900,1000,0.01,0.2,0.3,0.4,0.5)
+ims<- data.frame(ICC,M,seed)
+covsrs <- rep(NA,20)
+covclu <- rep(NA,20)
+```
+
+```{r f, fig.show='hide'}
+for(i in 1:20){
+  intervals(ICC[i],M[i])
+  covsrs[i] <- conmeansrs
+  covclu[i] <- conmeancluster
+}
+```
+
+```{r g}
+cov <- data.frame(covsrs,covclu)
+covprop <- data.frame(ims,cov)
+kable(covprop)
+```
+
+```{r h}
+plot(covprop[,4],covprop[,1],ylab="ICC",xlab="Coverage",main = "Coverage vs ICC assuming SRS")
+```
+
+```{r i}
+plot(covprop[,5],covprop[,1],ylab="ICC",xlab="Coverage",main = "Coverage vs ICC assuming cluster design")
+```
