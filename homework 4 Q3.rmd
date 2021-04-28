@@ -1,0 +1,73 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+---
+title: "HW 4 Q3"
+author: "Karki, Godsey"
+date: "4/28/2021"
+output: pdf_document
+install.packages("pdfpackages")
+--
+** CALCULATING ICC FOR FOR HOUSEHOLD PRICE**
+$$
+ICC= 1-\frac{M}{M-1}* \frac{SSW}{SSTO}=1-\frac{5}{4}* \frac{3683761384.8}{3683761384.8+70387281830}= 0.937833983 
+$$
+** CALCULATING ICC FOR FOR AVERAGE SQUAREFOOT**
+$$
+ICC= 1-\frac{M}{M-1}* \frac{SSW}{SSTO}=1-\frac{5}{4}* \frac{409954.800}{409954.800+6809072.743}=0.929014885 
+$$
+
+```{r,include=FALSE}
+load("C:/Users/Deepsagar/Downloads/geeklasamp.RData")
+library(knitr)
+library(raster)
+```
+```{r,include=FALSE}
+data_geek=geeklaesamp
+library(ggpubr)
+```
+** BOXPLOT OF EACH NEIGHBORHOOD**
+```{r, include=TRUE}
+ggsummarystats(
+  data_geek, x = "StatNbhd", y = "Squarefootage", 
+  ggfunc = ggboxplot, add = "jitter",
+  color = "StatNbhd", palette = "jpg")
+```
+
+
+
+No, the plot does not seem to support ICC value computed in part a. The ICC computed in part a is 0.929014885. Based on our plot, we can see that the data points are scattered within a cluster.The clusters also have outliers. In all of the individual neighborhoods, we can see that the variation exists. By the ICC computed in part a, the data points in each neighborhood should have been very close, but this is not the case as revealed by the boxplots
+ 
+ ```{r,include=FALSE}
+library(survey)
+data_geek$fpc1=7
+clustdes= svydesign(id=~StatNbhd, data=data_geek,fpc=~fpc1)
+```
+**CALCULATING Estimates of the Average Square Footage As Well as the Average Home Value, Their Standard Errors and Design Effects**
+
+```{r,include=TRUE}
+summary(clustdes)
+avgsqft=svymean(~Squarefootage,design=clustdes,deff=TRUE)
+avgsqft
+avghomeval=svymean(~HouseValue,design=clustdes,deff=TRUE)
+avghomeval
+```
+
+**ESTIMATING PRICE PER SQUAREFOOT ALONG WITH STANDARD ERROR**
+```{r,include=FALSE}
+theratio=svyratio(~HouseValue,~Squarefootage,clustdes)
+```
+```{r,include=TRUE}
+theratio
+```
+** COMPUTING CONFIDENCE INTERVAL OF PRICE PER SQFT**
+```{r, include=FALSE}
+CI_ratio=confint(theratio,level=0.95,df=degf(clustdes))
+```
+```{r, include=TRUE}
+CI_ratio
+```
+
+```
